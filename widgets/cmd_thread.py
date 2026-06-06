@@ -15,6 +15,7 @@ class CmdThread(QThread):
         *,
         busid: str = "",
         busids: list[str] | None = None,
+        wsl_distro: str = "",
         parent=None,
     ):
         super().__init__(parent)
@@ -22,6 +23,7 @@ class CmdThread(QThread):
         self._action = action_tag
         self._busid = busid
         self._busids = busids or []
+        self._wsl_distro = wsl_distro
 
     def run(self):
         mgr = self._mgr
@@ -29,10 +31,13 @@ class CmdThread(QThread):
         if tag == "bind":
             ok, msg = mgr.bind(self._busid, force=True)
             if ok:
-                ok2, msg2 = mgr.attach(self._busid, wsl_distro="")
+                ok2, msg2 = mgr.attach(self._busid, wsl_distro=self._wsl_distro)
                 msg = msg2
                 if not ok2:
                     ok = False
+                else:
+                    distro = self._wsl_distro or mgr.get_default_wsl_distro()
+                    mgr.set_busid_distro(self._busid, distro)
             self.finished_signal.emit(ok, msg, tag)
         elif tag == "detach":
             ok, msg = mgr.detach(self._busid)
@@ -43,7 +48,7 @@ class CmdThread(QThread):
             for bid in self._busids:
                 s, _ = mgr.bind(bid, force=True)
                 if s:
-                    s2, _ = mgr.attach(bid, wsl_distro="")
+                    s2, _ = mgr.attach(bid, wsl_distro=self._wsl_distro)
                     if s2:
                         ok += 1
                     else:
@@ -78,7 +83,7 @@ class CmdThread(QThread):
         elif tag == "attach_batch":
             ok, fail = 0, 0
             for bid in self._busids:
-                s, _ = mgr.attach(bid, wsl_distro="")
+                s, _ = mgr.attach(bid, wsl_distro=self._wsl_distro)
                 if s:
                     ok += 1
                 else:

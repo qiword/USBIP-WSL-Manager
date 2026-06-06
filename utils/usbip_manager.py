@@ -4,10 +4,16 @@ USB/IP 设备管理器
 """
 
 import json
+import pathlib
 import shutil
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
+
+# 发行版分配记录文件
+_DISTRO_MAP_FILE = (
+    pathlib.Path(__file__).resolve().parent.parent / "busid_distro_map.json"
+)
 
 
 @dataclass
@@ -115,6 +121,31 @@ class UsbipManager:
     def __init__(self):
         self._usbipd = _find_usbipd()
         self._wsl = _find_wsl()
+        self._load_distro_map()
+
+    def _load_distro_map(self):
+        """加载 busid → 发行版 映射"""
+        try:
+            self._distro_map = (
+                json.loads(_DISTRO_MAP_FILE.read_text(encoding="utf-8"))
+                if _DISTRO_MAP_FILE.exists()
+                else {}
+            )
+        except Exception:
+            self._distro_map = {}
+
+    def _save_distro_map(self):
+        """保存 busid → 发行版 映射"""
+        try:
+            _DISTRO_MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
+            _DISTRO_MAP_FILE.write_text(json.dumps(self._distro_map), encoding="utf-8")
+        except Exception:
+            pass
+
+    def set_busid_distro(self, busid: str, distro: str):
+        """记录 busid 对应的发行版"""
+        self._distro_map[busid] = distro
+        self._save_distro_map()
 
     # ------------------------------------------------------------------
     # 设备列表获取
@@ -154,7 +185,9 @@ class UsbipManager:
                 device.bind_state = "bound"
             # 判断 WSL 连接
             if device.attached_client:
-                device.attached_wsl = self._resolve_wsl_distro(device.attached_client)
+                device.attached_wsl = self._resolve_wsl_distro(
+                    device.attached_client, busid=busid
+                )
 
             devices.append(device)
         return devices
@@ -363,10 +396,9 @@ class UsbipManager:
             pid = m_pid.group(1)
         return vid, pid
 
-    def _resolve_wsl_distro(self, client_ip: str) -> Optional[str]:
-        """通过 client IP 推测对应的 WSL 发行版"""
-        distros = self.get_wsl_distributions()
-        running = [d for d in distros if d["running"]]
-        if running:
-            return running[0]["name"]
-        return None
+    def _resolve_wsl_distro(self, client_ip: str, busid: str = "") -> Optional[str]:
+        """尝试匹配已连接设备的 WSL 发行版"""
+        # 优先使用之前记录的发行版
+        if busid and busid in self._distro_map:
+            return self._distro_map[busid]
+        return self.get_default_wsl_distro() or None

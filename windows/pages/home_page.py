@@ -263,7 +263,10 @@ class HomePage(QWidget):
         ]
         if not shareable:
             InfoBar.info(
-                title=tr("info_share_all_title"), content=tr("info_no_shareable"), parent=self, duration=3000
+                title=tr("info_share_all_title"),
+                content=tr("info_no_shareable"),
+                parent=self,
+                duration=3000,
             )
             self._add_log("全部共享: 无设备可共享")
             return
@@ -328,12 +331,18 @@ class HomePage(QWidget):
         self.update_status()
         self._add_log(tr("log_refresh"))
 
+        # 每30秒自动刷新发行版状态
+        if not hasattr(self, "_distro_timer"):
+            self._distro_timer = QTimer(self)
+            self._distro_timer.timeout.connect(self._load_distros)
+            self._distro_timer.start(30000)
+
     def _load_distros(self):
         """加载 WSL 发行版到下拉框，每次刷新都更新状态"""
         if not hasattr(self, "_distro_combo"):
             return
-        # 记住当前选中
         current_data = self._distro_combo.currentData()
+        self._distro_combo.blockSignals(True)
         self._distro_combo.clear()
         distros = self.usbip.get_wsl_distributions()
         default_name = self.usbip.get_default_wsl_distro()
@@ -342,11 +351,19 @@ class HomePage(QWidget):
             marker = " \u2605 " if d["name"] == default_name else "    "
             label = f"{marker}{d['name']}  ({status})"
             self._distro_combo.addItem(label, d["name"])
-        # 恢复之前选中的发行版
         if current_data:
             idx = self._distro_combo.findData(current_data)
             if idx >= 0:
                 self._distro_combo.setCurrentIndex(idx)
+        self._distro_combo.blockSignals(False)
+
+    def _selected_distro(self) -> str:
+        """获取当前选中的 WSL 发行版名称"""
+        if hasattr(self, "_distro_combo"):
+            data = self._distro_combo.currentData()
+            if data:
+                return data
+        return ""
 
     def _populate_shareable(self):
         shareable = [
@@ -369,8 +386,8 @@ class HomePage(QWidget):
             item = QListWidgetItem()
             widget = self._create_wsl_item(device)
             widget.setFixedHeight(52)
-            # 直接指定 item 高度为 55（两行内容），高亮条覆盖全部
-            item.setSizeHint(QSize(0, 55))
+            # 直接指定 item 高度为 50（两行内容），高亮条覆盖全部
+            item.setSizeHint(QSize(0, 50))
             item.setData(Qt.ItemDataRole.UserRole, device)
             self.wsl_list.addItem(item)
             self.wsl_list.setItemWidget(item, widget)
@@ -509,7 +526,9 @@ class HomePage(QWidget):
         busid = item.data(Qt.ItemDataRole.UserRole) or ""
         name = item.text()
 
-        self._current_thread = CmdThread(self.usbip, "bind", busid=busid)
+        self._current_thread = CmdThread(
+            self.usbip, "bind", busid=busid, wsl_distro=self._selected_distro()
+        )
         self._current_thread.finished_signal.connect(
             lambda ok, msg, tag: self._on_bind_done(ok, msg, busid, name)
         )
@@ -569,11 +588,13 @@ class HomePage(QWidget):
     def _do_bind_batch(self, busids: list[str]):
         ok = fail = 0
         last_error = ""
+        distro = self._selected_distro() or self.usbip.get_default_wsl_distro()
         for bid in busids:
             s, msg = self.usbip.bind(bid, force=True)
             if s:
-                s2, msg2 = self.usbip.attach(bid, wsl_distro="")
+                s2, msg2 = self.usbip.attach(bid, wsl_distro=distro)
                 if s2:
+                    self.usbip.set_busid_distro(bid, distro)
                     ok += 1
                 else:
                     fail += 1
@@ -621,16 +642,25 @@ class HomePage(QWidget):
                 ok += 1
             else:
                 fail += 1
-        msg = tr("info_bind_done", count=ok) if fail == 0 else tr("info_bind_batch_partial", ok=ok, fail=fail)
-        InfoBar.success(title=tr("info_bind_done_title"), content=msg, parent=self, duration=3000)
-        self._add_log(f"仅绑定: {msg}")
+        msg = (
+            tr("info_bind_done", count=ok)
+            if fail == 0
+            else tr("info_bind_batch_partial", ok=ok, fail=fail)
+        )
+        InfoBar.success(
+            title=tr("info_bind_done_title"), content=msg, parent=self, duration=3000
+        )
+        self._add_log(tr("log_bind_only", count=ok))
         self.refresh_all_data()
 
     def _do_unbind_batch(self, busids: list[str]):
         valid = [b for b in busids if b]
         if not valid:
             InfoBar.error(
-                title=tr("info_unbind_fail_title"), content=tr("info_invalid_id"), parent=self, duration=3000
+                title=tr("info_unbind_fail_title"),
+                content=tr("info_invalid_id"),
+                parent=self,
+                duration=3000,
             )
             return
         for bid in valid:
@@ -638,7 +668,10 @@ class HomePage(QWidget):
             if not ok:
                 hint = translate_usbip_error(msg)
                 InfoBar.error(
-                    title=tr("info_unbind_fail_title"), content=hint, parent=self, duration=5000
+                    title=tr("info_unbind_fail_title"),
+                    content=hint,
+                    parent=self,
+                    duration=5000,
                 )
                 return
         InfoBar.success(
@@ -652,19 +685,23 @@ class HomePage(QWidget):
 
     def _do_attach_batch(self, busids: list[str]):
         ok = fail = 0
+        distro = self._selected_distro() or self.usbip.get_default_wsl_distro()
         for bid in busids:
-            s, _ = self.usbip.attach(bid, wsl_distro="")
+            s, _ = self.usbip.attach(bid, wsl_distro=distro)
             if s:
+                self.usbip.set_busid_distro(bid, distro)
                 ok += 1
             else:
                 fail += 1
         msg = (
             tr("info_attach_done", count=ok)
             if fail == 0
-            else f"成功 {ok} 个，失败 {fail} 个"
+            else tr("info_bind_batch_partial", ok=ok, fail=fail)
         )
-        InfoBar.success(title=tr("info_attach_done_title"), content=msg, parent=self, duration=3000)
-        self._add_log(f"连接: {msg}")
+        InfoBar.success(
+            title=tr("info_attach_done_title"), content=msg, parent=self, duration=3000
+        )
+        self._add_log(tr("log_attach", count=ok))
         self.refresh_all_data()
 
     def _do_wsl_detach(self, busids: list[str]):
