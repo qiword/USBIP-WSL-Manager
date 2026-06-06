@@ -2,6 +2,8 @@
 
 A GUI tool for managing USB devices shared between Windows and WSL2 via USB/IP protocol, built with PyQt6 + QFluentWidgets.
 
+![Screenshot](screenshot.png)
+
 ## Features
 
 - **Device Management** - List shareable USB devices, bind/attach/detach with one click

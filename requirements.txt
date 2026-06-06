@@ -1,0 +1,5 @@
+PyQt6>=6.5
+PyQt6-Fluent-Widgets>=1.5
+pyinstaller>=6.0
+pillow>=10.0
+cairosvg>=2.7

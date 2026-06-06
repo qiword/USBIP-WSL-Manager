@@ -1,0 +1,73 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+      - name: Build icon
+        run: |
+          python -c "from PIL import Image; Image.new('RGBA',(256,256),(25,118,210,255)).save('icon.ico',format='ICO',sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)]); print('icon.ico created')"
+
+      - name: PyInstaller build
+        run: |
+          python -m PyInstaller usbip_manager.spec --noconfirm --distpath=dist
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+
+      - name: Build installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
+
+      - name: Collect artifacts
+        shell: cmd
+        run: |
+          mkdir release
+          copy dist\USBIP-WSL-Manager.exe release\
+          if exist "Output\USBIP-WSL-Manager-Setup.exe" copy "Output\USBIP-WSL-Manager-Setup.exe" release\
+          if exist "installer\USBIP-WSL-Manager-Setup.exe" copy "installer\USBIP-WSL-Manager-Setup.exe" release\
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: USBIP-WSL-Manager
+          path: release\
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: USBIP-WSL-Manager
+          path: release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
