@@ -43,6 +43,16 @@ if __name__ == "__main__":
     from PyQt6.QtGui import QIcon
     app.setWindowIcon(QIcon(icon_path))
 
+    # 单实例检测（在窗口创建之前）
+    from utils.single_instance import SingleInstance
+    single = SingleInstance()
+    if not single.try_acquire():
+        sys.exit(0)
+
     window = Window()
+
+    # 第二个实例激活时恢复窗口
+    single._on_activate = window._show_from_tray
+
     window.show()
     sys.exit(app.exec())

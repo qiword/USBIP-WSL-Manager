@@ -32,7 +32,6 @@ from widgets.device_menu import build_windows_context_menu, build_wsl_context_me
 from widgets.device_table import DeviceTable
 
 
-
 class HomePage(QWidget):
     """方案 D 布局（对齐优化版）"""
 
@@ -65,7 +64,7 @@ class HomePage(QWidget):
         top_row = QHBoxLayout()
         top_row.setSpacing(12)
 
-        distro_label = BodyLabel("WSL \u53d1\u884c\u7248")
+        distro_label = BodyLabel(tr("top_wsl_distro"))
         distro_label.setFont(QFont("Microsoft YaHei", 11, QFont.Weight.Bold))
         top_row.addWidget(distro_label)
 
@@ -264,7 +263,7 @@ class HomePage(QWidget):
         ]
         if not shareable:
             InfoBar.info(
-                title="全部共享", content="没有可共享的设备", parent=self, duration=3000
+                title=tr("info_share_all_title"), content=tr("info_no_shareable"), parent=self, duration=3000
             )
             self._add_log("全部共享: 无设备可共享")
             return
@@ -278,21 +277,21 @@ class HomePage(QWidget):
         if not targets:
             InfoBar.info(
                 title=tr("top_detach_all"),
-                content="没有需要断开的设备",
+                content=tr("info_no_device"),
                 parent=self,
                 duration=3000,
             )
-            self._add_log("全部断开: 无设备")
+            self._add_log(tr("log_detach_all_none"))
             return
         self._do_detach_batch(targets)
-        self._add_log(f"全部断开: 共 {len(targets)} 个设备")
+        self._add_log(tr("log_detach_all_done", count=len(targets)))
 
     def _clear_persisted(self):
         persisted = self.usbip.get_persisted_devices()
         if not persisted:
             InfoBar.info(
                 title=tr("top_clear_persist"),
-                content="没有持久化绑定记录",
+                content=tr("info_no_persist"),
                 parent=self,
                 duration=3000,
             )
@@ -304,7 +303,7 @@ class HomePage(QWidget):
                 count += 1
         InfoBar.success(
             title=tr("top_clear_persist"),
-            content=f"已清除 {count} 条持久化绑定记录",
+            content=tr("info_persist_cleared", count=count),
             parent=self,
             duration=3000,
         )
@@ -339,11 +338,7 @@ class HomePage(QWidget):
         distros = self.usbip.get_wsl_distributions()
         default_name = self.usbip.get_default_wsl_distro()
         for d in distros:
-            status = (
-                "\u25cf \u8fd0\u884c\u4e2d"
-                if d["running"]
-                else "\u25cb \u5df2\u505c\u6b62"
-            )
+            status = tr("distro_running") if d["running"] else tr("distro_stopped")
             marker = " \u2605 " if d["name"] == default_name else "    "
             label = f"{marker}{d['name']}  ({status})"
             self._distro_combo.addItem(label, d["name"])
@@ -524,7 +519,7 @@ class HomePage(QWidget):
         if ok:
             InfoBar.success(
                 title=tr("info_share_ok_title"),
-                content=f"{name} 已共享并连接到 WSL",
+                content=tr("info_share_ok", name=name),
                 parent=self,
                 duration=3000,
             )
@@ -544,7 +539,7 @@ class HomePage(QWidget):
         if ok:
             InfoBar.success(
                 title=tr("info_detach_ok_title"),
-                content=f"{name} 已断开连接",
+                content=tr("info_detach_ok", name=name),
                 parent=self,
                 duration=3000,
             )
@@ -588,21 +583,21 @@ class HomePage(QWidget):
                 last_error = msg
         if fail == 0:
             InfoBar.success(
-                title="批量共享",
-                content=f"已共享 {ok} 个设备",
+                title=tr("info_bind_batch_title"),
+                content=tr("info_bind_batch", count=ok),
                 parent=self,
                 duration=3000,
             )
-            self._add_log(f"批量共享: 已共享 {ok} 个设备")
+            self._add_log(tr("log_bind_batch_ok", count=ok))
         else:
             hint = translate_usbip_error(last_error)
             InfoBar.warning(
-                title="批量共享",
-                content=f"成功 {ok} 个，失败 {fail} 个。{hint}",
+                title=tr("info_bind_batch_title"),
+                content=tr("info_bind_batch_partial", ok=ok, fail=fail) + ". " + hint,
                 parent=self,
                 duration=5000,
             )
-            self._add_log(f"批量共享: 成功 {ok} 个，失败 {fail} 个")
+            self._add_log(tr("log_bind_batch_partial", ok=ok, fail=fail))
         self.refresh_all_data()
 
     def _do_detach_batch(self, busids: list[str]):
@@ -610,12 +605,12 @@ class HomePage(QWidget):
             self.usbip.detach(bid)
             self.usbip.unbind(bid)
         InfoBar.success(
-            title="批量断开",
-            content=f"已断开 {len(busids)} 个设备",
+            title=tr("info_detach_batch_title"),
+            content=tr("info_detach_batch", count=len(busids)),
             parent=self,
             duration=3000,
         )
-        self._add_log(f"批量断开: {len(busids)} 个设备")
+        self._add_log(tr("log_detach_batch", count=len(busids)))
         self.refresh_all_data()
 
     def _do_bind_only_batch(self, busids: list[str]):
@@ -626,8 +621,8 @@ class HomePage(QWidget):
                 ok += 1
             else:
                 fail += 1
-        msg = f"已绑定 {ok} 个设备" if fail == 0 else f"成功 {ok} 个，失败 {fail} 个"
-        InfoBar.success(title="绑定完成", content=msg, parent=self, duration=3000)
+        msg = tr("info_bind_done", count=ok) if fail == 0 else tr("info_bind_batch_partial", ok=ok, fail=fail)
+        InfoBar.success(title=tr("info_bind_done_title"), content=msg, parent=self, duration=3000)
         self._add_log(f"仅绑定: {msg}")
         self.refresh_all_data()
 
@@ -635,7 +630,7 @@ class HomePage(QWidget):
         valid = [b for b in busids if b]
         if not valid:
             InfoBar.error(
-                title="解绑失败", content="无效的设备ID", parent=self, duration=3000
+                title=tr("info_unbind_fail_title"), content=tr("info_invalid_id"), parent=self, duration=3000
             )
             return
         for bid in valid:
@@ -643,16 +638,16 @@ class HomePage(QWidget):
             if not ok:
                 hint = translate_usbip_error(msg)
                 InfoBar.error(
-                    title="解绑失败", content=hint, parent=self, duration=5000
+                    title=tr("info_unbind_fail_title"), content=hint, parent=self, duration=5000
                 )
                 return
         InfoBar.success(
-            title="解绑完成",
-            content=f"已解绑 {len(valid)} 个设备",
+            title=tr("info_unbind_done_title"),
+            content=tr("info_unbind_done", count=len(valid)),
             parent=self,
             duration=3000,
         )
-        self._add_log(f"解绑: {len(valid)} 个设备")
+        self._add_log(tr("log_unbind", count=len(valid)))
         self.refresh_all_data()
 
     def _do_attach_batch(self, busids: list[str]):
@@ -664,11 +659,11 @@ class HomePage(QWidget):
             else:
                 fail += 1
         msg = (
-            f"已连接 {ok} 个设备到 WSL"
+            tr("info_attach_done", count=ok)
             if fail == 0
             else f"成功 {ok} 个，失败 {fail} 个"
         )
-        InfoBar.success(title="连接完成", content=msg, parent=self, duration=3000)
+        InfoBar.success(title=tr("info_attach_done_title"), content=msg, parent=self, duration=3000)
         self._add_log(f"连接: {msg}")
         self.refresh_all_data()
 
@@ -681,11 +676,11 @@ class HomePage(QWidget):
             self.usbip.unbind(bid)
         InfoBar.success(
             title=tr("info_detach_ok_title"),
-            content=f"已从 WSL 断开并解绑 {len(valid)} 个设备",
+            content=tr("info_wsl_detach_unbind", count=len(valid)),
             parent=self,
             duration=3000,
         )
-        self._add_log(f"WSL断开+解绑: {len(valid)} 个设备")
+        self._add_log(tr("log_wsl_detach_unbind", count=len(valid)))
         self.refresh_all_data()
 
     def _do_wsl_detach_only(self, busids: list[str]):
@@ -697,11 +692,11 @@ class HomePage(QWidget):
             self.usbip.detach(bid)
         InfoBar.success(
             title=tr("info_detach_ok_title"),
-            content=f"已从 WSL 断开 {len(valid)} 个设备，绑定已保留",
+            content=tr("info_wsl_detach_only", count=len(valid)),
             parent=self,
             duration=3000,
         )
-        self._add_log(f"WSL仅断开: {len(valid)} 个设备")
+        self._add_log(tr("log_wsl_detach_only", count=len(valid)))
         self.refresh_all_data()
 
     # ==================================================================
@@ -751,13 +746,13 @@ class HomePage(QWidget):
         if not device:
             return
         details = (
-            f"<b>设备名称:</b> {device.get('name')}<br>"
+            f"<b>{tr('detail_name')}:</b> {device.get('name')}<br>"
             f"<b>BUSID:</b> {device.get('busid')}<br>"
             f"<b>VID:PID:</b> {device.get('vid')}:{device.get('pid')}<br>"
-            f"<b>WSL发行版:</b> {device.get('wsl_distro')}<br>"
-            f"<b>状态:</b> {device.get('status')}"
+            f"<b>{tr('detail_distro')}:</b> {device.get('wsl_distro')}<br>"
+            f"<b>{tr('detail_status')}:</b> {device.get('status')}"
         )
-        QMessageBox.information(self, "设备详情", details)
+        QMessageBox.information(self, tr("detail_title"), details)
 
     def update_status(self):
         pass

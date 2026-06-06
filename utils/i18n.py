@@ -3,9 +3,19 @@
 import ctypes
 import json
 import locale
+import os
 import pathlib
+import sys
 
-LANG_FILE = pathlib.Path(__file__).resolve().parent / "lang_config.json"
+# 持久化文件放在用户目录（打包后 MEIPASS 只读）
+if getattr(sys, "frozen", False):
+    LANG_FILE = (
+        pathlib.Path(os.environ.get("APPDATA", os.path.expanduser("~")))
+        / "USBIP-WSL-Manager"
+        / "lang_config.json"
+    )
+else:
+    LANG_FILE = pathlib.Path(__file__).resolve().parent / "lang_config.json"
 
 
 def get_system_language() -> str:
@@ -87,7 +97,10 @@ TEXTS = {
     "info_bind_fail": {"zh": "共享失败", "en": "Share Failed"},
     "info_detach_fail": {"zh": "断开失败", "en": "Detach Failed"},
     "info_no_device": {"zh": "没有需要断开的设备", "en": "No devices to detach"},
-    "info_detach_all_done": {"zh": "已断开 {} 个设备", "en": "Detached {} devices"},
+    "info_detach_all_done": {
+        "zh": "已断开 {count} 个设备",
+        "en": "Detached {count} devices",
+    },
     "info_no_persist": {"zh": "没有持久化绑定记录", "en": "No persisted records"},
     "info_persist_cleared": {
         "zh": "已清除 {} 条持久化绑定记录",
@@ -99,17 +112,26 @@ TEXTS = {
     },
     "info_wsl_detach_unbind": {
         "zh": "已从 WSL 断开并解绑 {} 个设备",
-        "en": "Detached & unbound {} from WSL",
+        "en": "Detached & unbound {count} from WSL",
     },
-    "info_bind_batch": {"zh": "已共享 {} 个设备", "en": "Shared {} devices"},
+    "info_bind_batch": {"zh": "已共享 {count} 个设备", "en": "Shared {count} devices"},
     "info_bind_batch_partial": {
-        "zh": "成功 {} 个，失败 {} 个",
-        "en": "{} succeeded, {} failed",
+        "zh": "成功 {ok} 个，失败 {fail} 个",
+        "en": "{ok} succeeded, {fail} failed",
     },
-    "info_detach_batch": {"zh": "已断开 {} 个设备", "en": "Detached {} devices"},
-    "info_bind_done": {"zh": "已绑定 {} 个设备", "en": "Bound {} devices"},
-    "info_unbind_done": {"zh": "已解绑 {} 个设备", "en": "Unbound {} devices"},
-    "info_attach_done": {"zh": "已连接 {} 个设备到 WSL", "en": "Attached {} to WSL"},
+    "info_detach_batch": {
+        "zh": "已断开 {count} 个设备",
+        "en": "Detached {count} devices",
+    },
+    "info_bind_done": {"zh": "已绑定 {count} 个设备", "en": "Bound {count} devices"},
+    "info_unbind_done": {
+        "zh": "已解绑 {count} 个设备",
+        "en": "Unbound {count} devices",
+    },
+    "info_attach_done": {
+        "zh": "已连接 {count} 个设备到 WSL",
+        "en": "Attached {count} to WSL",
+    },
     "info_unbind_fail": {"zh": "解绑失败", "en": "Unbind Failed"},
     "info_invalid_id": {"zh": "无效的设备ID", "en": "Invalid device ID"},
     "log_refresh": {"zh": "刷新设备列表", "en": "Refresh device list"},
@@ -117,15 +139,18 @@ TEXTS = {
     "log_share_fail": {"zh": "共享 {} ({}) -> 失败", "en": "Share {} ({}) -> failed"},
     "log_detach": {"zh": "断开 {} ({})", "en": "Detach {} ({})"},
     "log_persist_clear": {"zh": "清除持久记录: {} 条", "en": "Clear persist: {}"},
-    "log_wsl_detach_only": {"zh": "WSL仅断开: {} 个设备", "en": "WSL detach only: {}"},
+    "log_wsl_detach_only": {
+        "zh": "WSL仅断开: {count} 个设备",
+        "en": "WSL detach only: {count}",
+    },
     "log_wsl_detach_unbind": {
-        "zh": "WSL断开+解绑: {} 个设备",
-        "en": "WSL detach+unbind: {}",
+        "zh": "WSL断开+解绑: {count} 个设备",
+        "en": "WSL detach+unbind: {count}",
     },
     "log_bind_batch": {"zh": "批量共享: {}", "en": "Batch share: {}"},
     "log_detach_batch": {"zh": "批量断开: {} 个设备", "en": "Batch detach: {}"},
     "log_bind_only": {"zh": "仅绑定: {}", "en": "Bind only: {}"},
-    "log_unbind": {"zh": "解绑: {} 个设备", "en": "Unbind: {}"},
+    "log_unbind": {"zh": "解绑: {count} 个设备", "en": "Unbind: {}"},
     "log_attach": {"zh": "连接: {}", "en": "Attach: {}"},
     "tooltip_busid": {"zh": "BUSID: {}", "en": "BUSID: {}"},
     "tooltip_vidpid": {"zh": "VID:PID: {}:{}", "en": "VID:PID: {}:{}"},
@@ -237,6 +262,94 @@ TEXTS = {
         "zh": "\u7a0b\u5e8f\u5df2\u6700\u5c0f\u5316\u5230\u7cfb\u7edf\u6258\u76d8\uff0c\u53cc\u51fb\u56fe\u6807\u6062\u590d\u7a97\u53e3",
         "en": "Minimized to tray. Double-click to restore.",
     },
+    "info_no_device": {
+        "zh": "\u6ca1\u6709\u9700\u8981\u65ad\u5f00\u7684\u8bbe\u5907",
+        "en": "No devices to detach",
+    },
+    "info_no_persist": {
+        "zh": "\u6ca1\u6709\u6301\u4e45\u5316\u7ed1\u5b9a\u8bb0\u5f55",
+        "en": "No persisted records",
+    },
+    "info_no_shareable": {
+        "zh": "\u6ca1\u6709\u53ef\u5171\u4eab\u7684\u8bbe\u5907",
+        "en": "No shareable devices",
+    },
+    "info_share_all_title": {"zh": "\u5168\u90e8\u5171\u4eab", "en": "Share All"},
+    "info_bind_batch_title": {"zh": "\u6279\u91cf\u5171\u4eab", "en": "Batch Share"},
+    "info_detach_batch_title": {"zh": "\u6279\u91cf\u65ad\u5f00", "en": "Batch Detach"},
+    "info_bind_done_title": {"zh": "\u7ed1\u5b9a\u5b8c\u6210", "en": "Bind Done"},
+    "info_unbind_fail_title": {"zh": "\u89e3\u7ed1\u5931\u8d25", "en": "Unbind Failed"},
+    "info_unbind_done_title": {"zh": "\u89e3\u7ed1\u5b8c\u6210", "en": "Unbind Done"},
+    "info_attach_done_title": {"zh": "\u8fde\u63a5\u5b8c\u6210", "en": "Attach Done"},
+    "info_bind_partial_title": {
+        "zh": "\u5df2\u7ed1\u5b9a\uff0c\u8fde\u63a5\u5931\u8d25",
+        "en": "Bound, attach failed",
+    },
+    "info_bind_fail_title": {"zh": "\u7ed1\u5b9a\u5931\u8d25", "en": "Bind Failed"},
+    "info_bind_batch": {
+        "zh": "\u5df2\u5171\u4eab {count} \u4e2a\u8bbe\u5907",
+        "en": "Shared {count} devices",
+    },
+    "info_detach_batch": {
+        "zh": "\u5df2\u65ad\u5f00 {count} \u4e2a\u8bbe\u5907",
+        "en": "Detached {count} devices",
+    },
+    "info_bind_done": {
+        "zh": "\u5df2\u7ed1\u5b9a {count} \u4e2a\u8bbe\u5907",
+        "en": "Bound {count} devices",
+    },
+    "info_unbind_done": {
+        "zh": "\u5df2\u89e3\u7ed1 {count} \u4e2a\u8bbe\u5907",
+        "en": "Unbound {count} devices",
+    },
+    "info_attach_done": {
+        "zh": "\u5df2\u8fde\u63a5 {count} \u4e2a\u8bbe\u5907\u5230 WSL",
+        "en": "Attached {count} to WSL",
+    },
+    "info_share_ok": {
+        "zh": "{name} \u5df2\u5171\u4eab\u5e76\u8fde\u63a5\u5230 WSL",
+        "en": "{name} shared and attached to WSL",
+    },
+    "info_detach_ok": {
+        "zh": "{name} \u5df2\u65ad\u5f00\u8fde\u63a5",
+        "en": "{name} disconnected",
+    },
+    "info_invalid_id": {
+        "zh": "\u65e0\u6548\u7684\u8bbe\u5907ID",
+        "en": "Invalid device ID",
+    },
+    "info_wsl_detach_unbind": {
+        "zh": "\u5df2\u4ece WSL \u65ad\u5f00\u5e76\u89e3\u7ed1 {count} \u4e2a\u8bbe\u5907",
+        "en": "Detached & unbound {count} from WSL",
+    },
+    "info_wsl_detach_only": {
+        "zh": "\u5df2\u4ece WSL \u65ad\u5f00 {count} \u4e2a\u8bbe\u5907\uff0c\u7ed1\u5b9a\u5df2\u4fdd\u7559",
+        "en": "Detached {count} from WSL, binding kept",
+    },
+    "info_persist_cleared": {
+        "zh": "\u5df2\u6e05\u9664 {count} \u6761\u6301\u4e45\u5316\u7ed1\u5b9a\u8bb0\u5f55",
+        "en": "Cleared {count} persisted records",
+    },
+    "info_download_hint": {
+        "zh": "\u8bf7\u5728 GitHub \u9875\u9762\u4e0b\u8f7d\u6700\u65b0\u7684 usbipd-win \u5b89\u88c5\u5305",
+        "en": "Download the latest usbipd-win from GitHub",
+    },
+    "log_detach_all_done": {
+        "zh": "\u5168\u90e8\u65ad\u5f00: \u5171 {count} \u4e2a\u8bbe\u5907",
+        "en": "Detach all: {count} devices",
+    },
+    "log_detach_batch": {
+        "zh": "\u6279\u91cf\u65ad\u5f00: {count} \u4e2a\u8bbe\u5907",
+        "en": "Batch detach: {count} devices",
+    },
+    "log_bind_batch_ok": {
+        "zh": "\u6279\u91cf\u5171\u4eab: \u5df2\u5171\u4eab {count} \u4e2a\u8bbe\u5907",
+        "en": "Batch share: {count} shared",
+    },
+    "log_bind_batch_partial": {
+        "zh": "\u6279\u91cf\u5171\u4eab: \u6210\u529f {ok} \u4e2a\uff0c\u5931\u8d25 {fail} \u4e2a",
+        "en": "Batch share: {ok} ok, {fail} failed",
+    },
 }
 
 
@@ -256,6 +369,7 @@ def _load_lang() -> str:
 def _save_lang(lang: str):
     """持久化语言配置"""
     try:
+        LANG_FILE.parent.mkdir(parents=True, exist_ok=True)
         LANG_FILE.write_text(json.dumps({"lang": lang}), encoding="utf-8")
     except Exception:
         pass

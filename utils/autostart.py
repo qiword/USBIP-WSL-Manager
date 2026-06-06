@@ -1,61 +1,70 @@
-"""自启动管理（注册表）"""
+"""自启动管理（启动文件夹快捷方式）"""
 
+import os
 import pathlib
 import sys
-import winreg
 
-AUTORUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APP_NAME = "USBIP-WSL-Manager"
 
 
+def _startup_dir() -> pathlib.Path:
+    """获取启动文件夹路径"""
+    return (
+        pathlib.Path(os.environ["APPDATA"])
+        / "Microsoft"
+        / "Windows"
+        / "Start Menu"
+        / "Programs"
+        / "Startup"
+    )
+
+
 def _get_exe_path() -> str:
-    """获取当前程序的启动路径"""
+    """获取当前 exe 或 pythonw 路径"""
     if getattr(sys, "frozen", False):
         return sys.executable
-    py_dir = pathlib.Path(sys.executable).parent
-    pythonw = str(py_dir / "pythonw.exe")
-    script = str(pathlib.Path(sys.argv[0]).resolve())
-    if script.endswith(".py"):
-        script = script[:-3] + ".pyw"
-    return f'"{pythonw}" "{script}"'
+    return ""
+
+
+def _shortcut_path() -> pathlib.Path:
+    return _startup_dir() / f"{APP_NAME}.lnk"
 
 
 def is_autostart_enabled() -> bool:
-    """检查是否已设置自启动"""
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTORUN_KEY)
-        try:
-            winreg.QueryValueEx(key, APP_NAME)
-            return True
-        except FileNotFoundError:
-            return False
-        finally:
-            winreg.CloseKey(key)
-    except OSError:
-        return False
+    return _shortcut_path().exists()
 
 
 def enable_autostart():
-    """启用自启动"""
+    exe = _get_exe_path()
+    if not exe:
+        return False
+
     try:
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, AUTORUN_KEY, 0, winreg.KEY_SET_VALUE
-        )
-        winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, _get_exe_path())
-        winreg.CloseKey(key)
+        import pythoncom
+        from win32com.client import Dispatch
+
+        _startup_dir().mkdir(parents=True, exist_ok=True)
+
+        shell = Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortcut(str(_shortcut_path()))
+        shortcut.TargetPath = exe
+        shortcut.WorkingDirectory = str(pathlib.Path(exe).parent)
+        shortcut.Description = "USBIP-WSL-Manager"
+        shortcut.IconLocation = exe
+        shortcut.Save()
         return True
-    except OSError:
+    except ImportError:
+        # 降级：直接创建 .bat 快捷方式
+        bat = _shortcut_path().with_suffix(".bat")
+        bat.write_text(f'@echo off\nstart "" "{exe}"\nexit\n')
+        return True
+    except Exception:
         return False
 
 
 def disable_autostart():
-    """禁用自启动"""
-    try:
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, AUTORUN_KEY, 0, winreg.KEY_SET_VALUE
-        )
-        winreg.DeleteValue(key, APP_NAME)
-        winreg.CloseKey(key)
+    sp = _shortcut_path()
+    if sp.exists():
+        sp.unlink()
         return True
-    except (OSError, FileNotFoundError):
-        return False
+    return False

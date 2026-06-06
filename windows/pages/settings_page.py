@@ -272,8 +272,8 @@ class SettingsPage(QWidget):
     def _open_download(self):
         webbrowser.open(USBIPD_RELEASE_URL)
         InfoBar.success(
-            title="已打开浏览器",
-            content="请在 GitHub 页面下载最新的 usbipd-win 安装包",
+            title=tr("info_browser_open"),
+            content=tr("info_download_hint"),
             parent=self,
             duration=4000,
         )
