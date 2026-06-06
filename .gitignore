@@ -1,0 +1,22 @@
+# Build outputs
+build/
+dist/
+nuitka_build/
+installer/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config
+lang_config.json
+nul
