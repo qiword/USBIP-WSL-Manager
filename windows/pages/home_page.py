@@ -586,155 +586,70 @@ class HomePage(QWidget):
         self._current_thread.start()
 
     def _do_bind_batch(self, busids: list[str]):
-        ok = fail = 0
-        last_error = ""
         distro = self._selected_distro() or self.usbip.get_default_wsl_distro()
-        for bid in busids:
-            s, msg = self.usbip.bind(bid, force=True)
-            if s:
-                s2, msg2 = self.usbip.attach(bid, wsl_distro=distro)
-                if s2:
-                    self.usbip.set_busid_distro(bid, distro)
-                    ok += 1
-                else:
-                    fail += 1
-                    last_error = msg2
-            else:
-                fail += 1
-                last_error = msg
-        if fail == 0:
+        self._current_thread = CmdThread(
+            self.usbip, "bind_batch", busids=busids, wsl_distro=distro
+        )
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
+
+    def _on_batch_done(self, ok: bool, msg: str, tag: str):
+        if ok:
             InfoBar.success(
                 title=tr("info_bind_batch_title"),
-                content=tr("info_bind_batch", count=ok),
+                content=msg,
                 parent=self,
                 duration=3000,
             )
-            self._add_log(tr("log_bind_batch_ok", count=ok))
         else:
-            hint = translate_usbip_error(last_error)
             InfoBar.warning(
                 title=tr("info_bind_batch_title"),
-                content=tr("info_bind_batch_partial", ok=ok, fail=fail) + ". " + hint,
+                content=msg,
                 parent=self,
                 duration=5000,
             )
-            self._add_log(tr("log_bind_batch_partial", ok=ok, fail=fail))
+        self._add_log(msg)
         self.refresh_all_data()
 
     def _do_detach_batch(self, busids: list[str]):
-        for bid in busids:
-            self.usbip.detach(bid)
-            self.usbip.unbind(bid)
-        InfoBar.success(
-            title=tr("info_detach_batch_title"),
-            content=tr("info_detach_batch", count=len(busids)),
-            parent=self,
-            duration=3000,
-        )
-        self._add_log(tr("log_detach_batch", count=len(busids)))
-        self.refresh_all_data()
+        self._current_thread = CmdThread(self.usbip, "detach_batch", busids=busids)
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
 
     def _do_bind_only_batch(self, busids: list[str]):
-        ok = fail = 0
-        for bid in busids:
-            s, _ = self.usbip.bind(bid, force=True)
-            if s:
-                ok += 1
-            else:
-                fail += 1
-        msg = (
-            tr("info_bind_done", count=ok)
-            if fail == 0
-            else tr("info_bind_batch_partial", ok=ok, fail=fail)
-        )
-        InfoBar.success(
-            title=tr("info_bind_done_title"), content=msg, parent=self, duration=3000
-        )
-        self._add_log(tr("log_bind_only", count=ok))
-        self.refresh_all_data()
+        self._current_thread = CmdThread(self.usbip, "bind_only_batch", busids=busids)
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
 
     def _do_unbind_batch(self, busids: list[str]):
-        valid = [b for b in busids if b]
-        if not valid:
-            InfoBar.error(
-                title=tr("info_unbind_fail_title"),
-                content=tr("info_invalid_id"),
-                parent=self,
-                duration=3000,
-            )
-            return
-        for bid in valid:
-            ok, msg = self.usbip.unbind(bid)
-            if not ok:
-                hint = translate_usbip_error(msg)
-                InfoBar.error(
-                    title=tr("info_unbind_fail_title"),
-                    content=hint,
-                    parent=self,
-                    duration=5000,
-                )
-                return
-        InfoBar.success(
-            title=tr("info_unbind_done_title"),
-            content=tr("info_unbind_done", count=len(valid)),
-            parent=self,
-            duration=3000,
-        )
-        self._add_log(tr("log_unbind", count=len(valid)))
-        self.refresh_all_data()
+        self._current_thread = CmdThread(self.usbip, "unbind_batch", busids=busids)
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
 
     def _do_attach_batch(self, busids: list[str]):
-        ok = fail = 0
         distro = self._selected_distro() or self.usbip.get_default_wsl_distro()
-        for bid in busids:
-            s, _ = self.usbip.attach(bid, wsl_distro=distro)
-            if s:
-                self.usbip.set_busid_distro(bid, distro)
-                ok += 1
-            else:
-                fail += 1
-        msg = (
-            tr("info_attach_done", count=ok)
-            if fail == 0
-            else tr("info_bind_batch_partial", ok=ok, fail=fail)
+        self._current_thread = CmdThread(
+            self.usbip, "attach_batch", busids=busids, wsl_distro=distro
         )
-        InfoBar.success(
-            title=tr("info_attach_done_title"), content=msg, parent=self, duration=3000
-        )
-        self._add_log(tr("log_attach", count=ok))
-        self.refresh_all_data()
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
 
     def _do_wsl_detach(self, busids: list[str]):
         valid = [b for b in busids if b]
         if not valid:
             return
-        for bid in valid:
-            self.usbip.detach(bid)
-            self.usbip.unbind(bid)
-        InfoBar.success(
-            title=tr("info_detach_ok_title"),
-            content=tr("info_wsl_detach_unbind", count=len(valid)),
-            parent=self,
-            duration=3000,
-        )
-        self._add_log(tr("log_wsl_detach_unbind", count=len(valid)))
-        self.refresh_all_data()
+        self._current_thread = CmdThread(self.usbip, "wsl_detach", busids=valid)
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
 
     def _do_wsl_detach_only(self, busids: list[str]):
         """仅从WSL断开设备，保留绑定"""
         valid = [b for b in busids if b]
         if not valid:
             return
-        for bid in valid:
-            self.usbip.detach(bid)
-        InfoBar.success(
-            title=tr("info_detach_ok_title"),
-            content=tr("info_wsl_detach_only", count=len(valid)),
-            parent=self,
-            duration=3000,
-        )
-        self._add_log(tr("log_wsl_detach_only", count=len(valid)))
-        self.refresh_all_data()
+        self._current_thread = CmdThread(self.usbip, "detach_batch", busids=valid)
+        self._current_thread.finished_signal.connect(self._on_batch_done)
+        self._current_thread.start()
 
     # ==================================================================
     # 右键菜单
